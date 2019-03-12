@@ -6,7 +6,7 @@ const (
 	// 历史记录文件名称
 	HistoryFileName = ".dict_liner_history"
 
-	Version = "v1.0.0-develop"
+	Version = "v1.0.0"
 	AppName = "DictGenerate"
 	Author	= "telan"
 	Email	= "ziiber@foxmail.com"
