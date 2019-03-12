@@ -1,10 +1,18 @@
 language: go
 sudo: required
+GO111MODULE: on
 
 go:
   - 1.11.x
   - master
 
+install:
+  - go mod tidy
+
 script:
   - go test -v ./...
   - go build -o DictGenerate .
+
+env:
+  global:
+    - GOARCH=amd64
