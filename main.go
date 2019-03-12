@@ -38,8 +38,6 @@ var (
 		}
 		return nil
 	}
-
-	isCli = true
 )
 
 func init() {
