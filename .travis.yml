@@ -1,6 +1,5 @@
 language: go
 sudo: required
-GO111MODULE: on
 
 go:
   - 1.11.x
@@ -16,3 +15,4 @@ script:
 env:
   global:
     - GOARCH=amd64
+    - GO111MODULE=on
