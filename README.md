@@ -1,7 +1,17 @@
 # DictGenerate 1.0.0 [![Build Status](https://travis-ci.org/ziiber/DictGenerate.svg?branch=master)](https://travis-ci.org/ziiber/DictGenerate)
+
 使用Go语言编写的社工字典生成器
 
-## Install
+The social engineering dictionary generator written by Go
+
+## Build
+```
+git clone git@github.com:ziiber/DictGenerate.git
+go mod tidy
+go build
+```
+
+## Download
 [Download](https://github.com/ziiber/DictGenerate/releases)
 
 ## Usage
