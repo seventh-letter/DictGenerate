@@ -1,4 +1,4 @@
-# DictGenerate 1.0.0 [![Build Status](https://travis-ci.org/ziiber/DictGenerate.svg?branch=master)](https://travis-ci.org/ziiber/DictGenerate)
+# DictGenerate 1.0.1 [![Build Status](https://travis-ci.org/ziiber/DictGenerate.svg?branch=master)](https://travis-ci.org/ziiber/DictGenerate)
 
 使用Go语言编写的社工字典生成器
 
