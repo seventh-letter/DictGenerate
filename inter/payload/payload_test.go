@@ -80,3 +80,8 @@ func TestMixMobile(t *testing.T) {
 		t.Log(v)
 	}
 }
+
+func TestUcWords(t *testing.T) {
+	s := "tEst"
+	t.Log(UcWords(s))
+}

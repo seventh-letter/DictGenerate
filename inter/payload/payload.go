@@ -22,6 +22,35 @@ func ToUpperLowerSlice(s []string) (low, up []string) {
 	return
 }
 
+// 字符串首字母大写
+func UcWords(s string) string {
+	var upperStr string
+	vv := []rune(s)   // 后文有介绍
+	for i := 0; i < len(vv); i++ {
+		if i == 0 {
+			if vv[i] >= 97 && vv[i] <= 122 {
+				vv[i] -= 32 // string的码表相差32位
+				upperStr += string(vv[i])
+			} else {
+				return s
+			}
+		} else {
+			upperStr += string(vv[i])
+		}
+	}
+	return upperStr
+}
+
+// 字符串首字母大写 - 切片
+func UcWordsSlice(s []string) []string {
+	total := len(s)
+	list := make([]string, len(s))
+	for i := 0; i < total; i++ {
+		list[i] = UcWords(s[i])
+	}
+	return list
+}
+
 // 切片去重 - map
 func SliceUnique(s []string) []string {
 	total := len(s)
@@ -70,7 +99,8 @@ func MixName(s []string) []string {
 	// 组合全名 例：zhou jie lun 组合 zhoujielun
 	fullNameLower := strings.Join(lower, "")
 	fullNameUpper := strings.Join(upper, "")
-	mixList = append(mixList, fullNameLower, fullNameUpper)
+	firstUpperStr := UcWords(fullNameLower)
+	mixList = append(mixList, fullNameLower, fullNameUpper, firstUpperStr)
 
 	// 组合全名 姓放最后 例：zhou jie lun 组合 jielunzhou
 	if total > 1 {
@@ -106,7 +136,10 @@ func MixName(s []string) []string {
 			// 组合首字母和姓 例：zhou jie lun 组合 zjielun jielunz
 			firstName1Lower, firstName1Upper := ToUpperLower(firstLetter[0] + strings.Join(s[1:], ""))
 			firstName2Lower, firstName2Upper := ToUpperLower(strings.Join(s[1:], "") + firstLetter[0])
-			mixList = append(mixList, firstName1Lower, firstName1Upper, firstName2Lower, firstName2Upper)
+			// 首字母大写
+			firstUpperStr := UcWords(firstName1Lower)
+			firstUpperStr2 := UcWords(firstName2Lower)
+			mixList = append(mixList, firstName1Lower, firstName1Upper, firstName2Lower, firstName2Upper, firstUpperStr, firstUpperStr2)
 		}
 	}
 
@@ -124,6 +157,8 @@ func MixFirstLetter(s string) []string {
 
 	// 大小写
 	lower, upper := ToUpperLower(s)
+	// 首字母大写
+	firstUpperStr := UcWords(lower)
 
 	// 反转字符串
 	lowerRe := ReverseString(lower)
@@ -134,7 +169,7 @@ func MixFirstLetter(s string) []string {
 	lowerRepeat, upperRepeat := ToUpperLower(repeat2)
 
 	// 去重
-	mixList = append(mixList, lower, upper, lowerRe, upperRe, lowerRepeat, upperRepeat)
+	mixList = append(mixList, lower, upper, lowerRe, upperRe, lowerRepeat, upperRepeat, firstUpperStr)
 	mixList = SliceUnique(mixList)
 	return mixList
 }
@@ -144,9 +179,13 @@ func MixUsername(s string) []string {
 	mixList := make([]string, 0)
 	lower, upper := ToUpperLowerSlice(strings.Split(s, ","))
 
+	// 首字母大写
+	firstUpperStr := UcWordsSlice(lower)
+
 	// 去重
 	mixList = append(mixList, lower...)
 	mixList = append(mixList, upper...)
+	mixList = append(mixList, firstUpperStr...)
 	mixList = SliceUnique(mixList)
 	return mixList
 }
@@ -185,11 +224,14 @@ func MixBirthday(birthday, lunar string) []string {
 
 // 混淆邮箱地址
 func MixEmail(s string) []string {
-	mixList := make([]string, 4)
+	mixList := make([]string, 5)
 
 	email := strings.Split(s, "@")
 	mixList[0], mixList[1] = ToUpperLower(email[0])
 	mixList[2], mixList[3] = ToUpperLower(s)
+
+	// 首字母大写
+	mixList[4] = UcWords(mixList[0])
 
 	// 去重
 	mixList = SliceUnique(mixList)
@@ -250,9 +292,13 @@ func MixPhrase(s string) []string {
 	list := strings.Split(s, ",")
 	lower, upper := ToUpperLowerSlice(list)
 
+	// 首字母大写
+	firstUpperStr := UcWordsSlice(lower)
+
 	// 去重
 	mixList = append(mixList, lower...)
 	mixList = append(mixList, upper...)
+	mixList = append(mixList, firstUpperStr...)
 	mixList = SliceUnique(mixList)
 	return mixList
 }
@@ -263,8 +309,10 @@ func MixWordGroup(s string) []string {
 	list := strings.Split(s, ",")
 
 	lower, upper := ToUpperLowerSlice(list)
+	firstUpperStr := UcWordsSlice(lower)
 	mixList = append(mixList, lower...)
 	mixList = append(mixList, upper...)
+	mixList = append(mixList, firstUpperStr...)
 
 	// 去重
 	mixList = SliceUnique(mixList)
