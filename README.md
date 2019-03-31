@@ -5,7 +5,7 @@
 The social engineering dictionary generator written by Go
 
 [![Build Status](https://travis-ci.org/ziiber/DictGenerate.svg?branch=master)](https://travis-ci.org/ziiber/DictGenerate)
-[![Go version](https://img.shields.io/badge/Go-%3E1.11-brightgreen.svg)](https://github.com/ziiber/teler)
+[![Go version](https://img.shields.io/badge/Go-1.11-brightgreen.svg)](https://github.com/ziiber/teler)
 [![996.icu](https://img.shields.io/badge/link-996.icu-red.svg)](https://996.icu)
 
 ## Build
