@@ -3,7 +3,7 @@ package config
 import (
 	"DictGenerate/util"
 	"github.com/json-iterator/go"
-	"github.com/ziiber/go-logging"
+	"github.com/telanflow/go-logging"
 	"io"
 	"os"
 	"path/filepath"

@@ -6,13 +6,20 @@ The social engineering dictionary generator written by Go
 
 ## Build
 ```
-git clone git@github.com:ziiber/DictGenerate.git
+git clone git@github.com:telanflow/DictGenerate.git
+cd DictGenerate
 go mod tidy
 go build
 ```
+Or
+```
+git clone git@github.com:telanflow/DictGenerate.git
+cd DictGenerate
+sh ./build.sh
+```
 
 ## Download
-[Download](https://github.com/ziiber/DictGenerate/releases)
+[Download](https://github.com/telanflow/DictGenerate/releases)
 
 ## Usage
     USAGE:

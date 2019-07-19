@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ziiber/go-logging"
+	"github.com/telanflow/go-logging"
 	"os"
 )
 
