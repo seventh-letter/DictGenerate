@@ -14,3 +14,5 @@ require (
 	github.com/telanflow/go-logging v1.0.0
 	github.com/urfave/cli v1.20.0
 )
+
+go 1.13
