@@ -4,37 +4,37 @@ import (
 	"DictGenerate/inter/config"
 	"DictGenerate/inter/dictliner"
 	"DictGenerate/inter/dictliner/args"
+	"DictGenerate/inter/logger"
 	"DictGenerate/inter/payload"
 	"DictGenerate/inter/pinyin"
 	"DictGenerate/inter/table"
 	"DictGenerate/util"
+	"fmt"
 	"github.com/ernestosuarez/itertools"
 	"github.com/nosixtools/solarlunar"
 	"github.com/peterh/liner"
-	"github.com/telanflow/go-logging"
 	"github.com/urfave/cli"
 	"os"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 var (
-	gLogs = logging.NewLogger(config.AppName)
-
 	reloadFn = func(c *cli.Context) error {
 		err := config.C.Reload()
 		if err != nil {
-			gLogs.Warnf("重载配置错误: %s", err)
+			logger.Warnf("重载配置错误: %s", err)
 		}
 		return nil
 	}
 	saveFunc = func(c *cli.Context) error {
 		err := config.C.Save()
 		if err != nil {
-			gLogs.Warnf("保存配置错误: %s", err)
+			logger.Warnf("保存配置错误: %s", err)
 		}
 		return nil
 	}
@@ -48,13 +48,25 @@ func init() {
 	switch err {
 	case nil:
 	case config.ErrConfigFileNoPermission:
-		gLogs.Panicf("配置文件无权限访问：%s", config.ConfigFilePath)
-		os.Exit(1)
+		logger.Fatalf("配置文件无权限访问：%s", config.ConfigFilePath)
 	case config.ErrConfigContentsParseError:
-		gLogs.Panicf("解析Config数据错误：%s", config.ConfigFilePath)
-		os.Exit(1)
+		logger.Error("Resolve config fail, reset it!")
+		logger.Info("Reset config ...")
+		logger.Infof("config path: %s", config.ConfigFilePath)
+		err := config.C.Reset()
+		if err != nil {
+			logger.Fatalf("Reset config fail! 请尝试手动删除配置文件：%s", config.ConfigFilePath)
+		}
+
+		logger.Info("Reload config ...")
+		if err := config.C.Init(); err != nil {
+			logger.Fatal("Reload config fail! ")
+		}
+
+		logger.Info("Config loaded successfully!")
+
 	default:
-		gLogs.Warnf("WARNING: config init error: %s", err)
+		fmt.Printf("WARNING: config init error: %s\n", err)
 	}
 }
 
@@ -62,19 +74,19 @@ func main() {
 	defer config.C.Close()
 
 	app := cli.NewApp()
-	app.Name 	= config.AppName
-	app.Author 	= config.Author
+	app.Name = config.AppName
+	app.Author = config.Author
 	app.Version = config.Version
-	app.Email	= config.Email
-	app.Usage 	= app.Name + " for " + runtime.GOOS + "/" + runtime.GOARCH
+	app.Email = config.Email
+	app.Usage = app.Name + " for " + runtime.GOOS + "/" + runtime.GOARCH
 	app.Copyright = "(c) 2019 " + app.Author + "."
 	app.Description = config.NameChar + `
 使用Go语言编写的社工字典生成器`
 
 	app.Action = func(c *cli.Context) {
 		if c.NArg() != 0 {
-			gLogs.Printf("未找到命令: %s", c.Args().Get(0))
-			gLogs.Printf("运行命令 %s help 获取帮助", app.Name)
+			logger.Warnf("未找到命令: %s", c.Args().Get(0))
+			logger.Warnf("运行命令 %s help 获取帮助", app.Name)
 			return
 		}
 
@@ -85,13 +97,13 @@ func main() {
 
 		line.History, err = dictliner.NewLineHistory(config.HistoryFilePath)
 		if err != nil {
-			gLogs.Warnf("警告: 读取历史命令文件错误, %s", err)
+			logger.Warnf("警告: 读取历史命令文件错误, %s", err)
 		}
 
-		line.ReadHistory()
+		_ = line.ReadHistory()
 		defer func() {
-			line.DoWriteHistory()
-			line.Close()
+			_ = line.DoWriteHistory()
+			_ = line.Close()
 		}()
 
 		// tab 自动补全命令
@@ -126,17 +138,18 @@ func main() {
 					if !strings.HasPrefix(name, lineArgs[numArgs-1]) {
 						continue
 					}
-					s = append(s, prefix + " " + name + " ")
+					s = append(s, prefix+" "+name+" ")
 				}
 			}
 
 			return
 		})
 
-		gLogs.Info(app.Description)
-		gLogs.Info("提示: 方向键上下可切换历史命令.")
-		gLogs.Info("提示: Ctrl + A / E 跳转命令 首 / 尾.")
-		gLogs.Info("提示: 输入 help 获取帮助.")
+		fmt.Println(app.Description)
+		fmt.Println("提示: 方向键上下可切换历史命令.")
+		fmt.Println("提示: Ctrl + A / E 跳转命令 首 / 尾.")
+		fmt.Println("提示: 输入 help 获取帮助.")
+		fmt.Println("")
 
 		for {
 			prompt := app.Name + " > "
@@ -147,7 +160,7 @@ func main() {
 			case nil:
 				// continue
 			default:
-				gLogs.Print(err)
+				logger.Error(err)
 				return
 			}
 
@@ -183,28 +196,34 @@ func main() {
 				startTime := time.Now()
 
 				// 组合姓名
+				nameList := make([]string, 0)
 				if config.C.Storage.Name != nil && len(config.C.Storage.Name) > 0 {
-					name := payload.MixName(config.C.Storage.Name)
-					mixPassList = append(mixPassList, name...)
+					nameList = payload.MixName(config.C.Storage.Name)
+					mixPassList = append(mixPassList, nameList...)
 				}
 
 				// 首字母
+				filterLetterList := make([]string, 0)
 				if config.C.Storage.FirstLetter != "" {
-					filterLetter := payload.MixFirstLetter(config.C.Storage.FirstLetter)
-					mixPassList = append(mixPassList, filterLetter...)
+					filterLetterList = payload.MixFirstLetter(config.C.Storage.FirstLetter)
+					mixPassList = append(mixPassList, filterLetterList...)
 				}
 
 				// 组合短名称
+				shortNameList := make([]string, 0)
 				if config.C.Storage.Short != nil && len(config.C.Storage.Short) > 0 {
-					mixPassList = append(mixPassList, config.C.Storage.Short...)
+					shortNameList = config.C.Storage.Short
+					mixPassList = append(mixPassList, shortNameList...)
 				}
 
 				// 组合用户名
+				usernameList := make([]string, 0)
 				if config.C.Storage.Username != nil && len(config.C.Storage.Username) > 0 {
 					for _, v := range config.C.Storage.Username {
 						username := payload.MixUsername(v)
-						mixPassList = append(mixPassList, username...)
+						usernameList = append(usernameList, username...)
 					}
+					mixPassList = append(mixPassList, usernameList...)
 				}
 
 				// 工号
@@ -218,23 +237,30 @@ func main() {
 				}
 
 				// 组合生日
+				birthdayList := make([]string, 0)
 				if config.C.Storage.Birthday != "" && config.C.Storage.Lunar != "" {
-					birthday := payload.MixBirthday(config.C.Storage.Birthday, config.C.Storage.Lunar)
-					mixPassList = append(mixPassList, birthday...)
+					birthdayList = payload.MixBirthday(config.C.Storage.Birthday, config.C.Storage.Lunar)
+					mixPassList = append(mixPassList, birthdayList...)
 				}
 
 				// 组合邮箱地址
-				if config.C.Storage.Email != "" {
-					email := payload.MixEmail(config.C.Storage.Email)
-					mixPassList = append(mixPassList, email...)
+				emailList := make([]string, 0)
+				if config.C.Storage.Email != nil && len(config.C.Storage.Email) > 0 {
+					for _, v := range config.C.Storage.Email {
+						email := payload.MixEmail(v)
+						emailList = append(emailList, email...)
+					}
+					mixPassList = append(mixPassList, emailList...)
 				}
 
 				// 组合手机号
+				mobileList := make([]string, 0)
 				if config.C.Storage.Mobile != nil && len(config.C.Storage.Mobile) > 0 {
 					for _, v := range config.C.Storage.Mobile {
 						mobile := payload.MixMobile(v)
-						mixPassList = append(mixPassList, mobile...)
+						mobileList = append(mobileList, mobile...)
 					}
+					mixPassList = append(mixPassList, mobileList...)
 				}
 
 				// 组合身份证
@@ -262,86 +288,87 @@ func main() {
 				}
 
 				// 组合连接符
+				connectorList := make([]string, 0)
 				if config.C.Storage.Connector != "" {
-					connector := payload.MixConnector(config.C.Storage.Connector)
-					mixPassList = append(mixPassList, connector...)
+					connectorList = payload.MixConnector(config.C.Storage.Connector)
+					mixPassList = append(mixPassList, connectorList...)
+				}
+
+				// 组合列表
+				combinationList := make([]string, 0)
+				// 姓名&连接符&生日
+				if len(nameList) > 0 && len(birthdayList) > 0 {
+					list := make([]string, 0, len(nameList)+len(birthdayList))
+					list = append(list, nameList...)
+					list = append(list, birthdayList...)
+
+					mixList := make([]string, 0, len(list))
+					for v := range itertools.CombinationsStr(list, 2) {
+						for _, connector := range connectorList {
+							mixList = append(mixList, strings.Join(v, connector))
+						}
+					}
+					combinationList = append(combinationList, mixList...)
+				}
+				// 用户名&连接符&生日
+				if len(usernameList) > 0 && len(birthdayList) > 0 {
+					list := make([]string, 0, len(usernameList)+len(birthdayList))
+					list = append(list, usernameList...)
+					list = append(list, birthdayList...)
+
+					mixList := make([]string, 0, len(list))
+					for v := range itertools.CombinationsStr(list, 2) {
+						for _, connector := range connectorList {
+							mixList = append(mixList, strings.Join(v, connector))
+						}
+					}
+					combinationList = append(combinationList, mixList...)
+				}
+				// 短名称&连接符&生日
+				if len(shortNameList) > 0 && len(birthdayList) > 0 {
+					list := make([]string, 0, len(shortNameList)+len(birthdayList))
+					list = append(list, shortNameList...)
+					list = append(list, birthdayList...)
+
+					mixList := make([]string, 0, len(list))
+					for v := range itertools.CombinationsStr(list, 2) {
+						for _, connector := range connectorList {
+							mixList = append(mixList, strings.Join(v, connector))
+						}
+					}
+					combinationList = append(combinationList, mixList...)
+				}
+				// 姓名&连接符&手机号
+				if len(nameList) > 0 && len(mobileList) > 0 {
+					list := make([]string, 0, len(nameList)+len(mobileList))
+					list = append(list, nameList...)
+					list = append(list, mobileList...)
+
+					mixList := make([]string, 0, len(list))
+					for v := range itertools.CombinationsStr(list, 2) {
+						for _, connector := range connectorList {
+							mixList = append(mixList, strings.Join(v, connector))
+						}
+					}
+					combinationList = append(combinationList, mixList...)
+				}
+				// 短名称&连接符&手机号
+				if len(shortNameList) > 0 && len(mobileList) > 0 {
+					list := make([]string, 0, len(shortNameList)+len(mobileList))
+					list = append(list, shortNameList...)
+					list = append(list, mobileList...)
+
+					mixList := make([]string, 0, len(list))
+					for v := range itertools.CombinationsStr(list, 2) {
+						for _, connector := range connectorList {
+							mixList = append(mixList, strings.Join(v, connector))
+						}
+					}
+					combinationList = append(combinationList, mixList...)
 				}
 
 				// 笛卡尔积 - 排列
-				secondOrder := make([]string, 0, 10000)
-				threeOrder := make([]string, 0, 15000)
-				mixPassList = payload.SliceUnique(mixPassList)
-
-				// 一阶
-				firstOrder := payload.SliceUnique(append(mixPassList, payload.Pass...))
-				gLogs.Infof("一阶密码生成.. %dms", time.Now().Sub(startTime) / time.Millisecond)
-
-				// 二阶
-				startTime = time.Now()
-				for v := range itertools.CombinationsStr(firstOrder, 2) {
-					secondOrder = append(secondOrder, strings.Join(v, ""))
-				}
-				gLogs.Infof("二阶密码生成.. %dms", time.Now().Sub(startTime) / time.Millisecond)
-
-				// 三阶
-				startTime = time.Now()
-				for v := range itertools.CombinationsStr(firstOrder, 3) {
-					threeOrder = append(threeOrder, strings.Join(v, ""))
-				}
-				gLogs.Infof("三阶密码生成.. %dms", time.Now().Sub(startTime) / time.Millisecond)
-
-				total := len(firstOrder) + len(secondOrder) + len(threeOrder)
-				list := make([]string, 0, total)
-				list = append(list, firstOrder...)
-				list = append(list, secondOrder...)
-				list = append(list, threeOrder...)
-				list = payload.SliceUnique(list) // 去重
-				total = len(list)
-
-				// 字典过滤
-				startTime = time.Now()
-				var (
-					regFilterLetter *regexp.Regexp
-					regFilterNumber *regexp.Regexp
-				)
-
-				// 过滤纯字符
-				if config.C.Storage.FilterLetter {
-					regFilterLetter, _ = regexp.Compile("^[a-zA-Z]+$")
-				}
-				// 过滤纯数字
-				if config.C.Storage.FilterNumber {
-					regFilterNumber, _ = regexp.Compile("^[0-9]+$")
-				}
-
-				dictList := make([]string, 0, total)
-				for i := 0; i < total; i++ {
-
-					// 过滤长度
-					length := len([]rune(list[i]))
-					if length < config.C.Storage.FilterLenMin {
-						continue
-					}
-					if length > config.C.Storage.FilterLenMax {
-						continue
-					}
-
-					// 过滤纯字符
-					if regFilterLetter != nil && regFilterLetter.MatchString(list[i]) {
-						continue
-					}
-
-					// 过滤纯数字
-					if regFilterNumber != nil && regFilterNumber.MatchString(list[i]) {
-						continue
-					}
-
-					dictList = append(dictList, list[i])
-				}
-				gLogs.Infof("Dict tidy.. %dms", time.Now().Sub(startTime) / time.Millisecond)
-
-				// 输出到文件
-				startTime = time.Now()
+				mixPassList = payload.SliceUnique(append(mixPassList, payload.Pass...))
 
 				// 文件名
 				fileName := ""
@@ -349,17 +376,73 @@ func main() {
 					fileName = c.String("output")
 				} else {
 					if config.C.Storage.Name == nil || len(config.C.Storage.Name) <= 0 {
-						fileName = startTime.Format("2006-01-02 15:04:05") + ".txt"
+						fileName = startTime.Format("2006-01-02 15:04:05")
 					} else {
-						fileName = strings.Join(config.C.Storage.Name, "") + ".txt"
+						fileName = strings.Join(config.C.Storage.Name, "")
 					}
 				}
 
-				if err := util.OutputFile(fileName, dictList); err != nil {
-					gLogs.Errorf("字典生成失败: %s", err)
-				}
-				gLogs.Infof("Dict output.. %dms", time.Now().Sub(startTime) / time.Millisecond)
-				gLogs.Infof("Dict filename: %s", fileName)
+				// 并发生成
+				logger.Info("Dict generate..")
+				wg := sync.WaitGroup{}
+				wg.Add(3)
+
+				// 一阶
+				go func() {
+					file := fmt.Sprintf("%s_%s", fileName, "easy")
+
+					firstOrder := make([]string, 0, len(mixPassList)+len(combinationList))
+					firstOrder = append(firstOrder, mixPassList...)
+					firstOrder = append(firstOrder, combinationList...)
+					firstOrder = payload.SliceUnique(firstOrder)
+					if filePath, err := DictOutput(firstOrder, file); err != nil {
+						logger.Errorf("easy generate fail: %s", err)
+					} else {
+						logger.Infof("easy dict filename: %s", filePath)
+					}
+					wg.Done()
+				}()
+
+				// 二阶
+				go func() {
+					file := fmt.Sprintf("%s_%s", fileName, "medium")
+
+					secondOrder := make([]string, 0, len(mixPassList)*2)
+					for v := range itertools.CombinationsStr(mixPassList, 2) {
+						secondOrder = append(secondOrder, strings.Join(v, ""))
+					}
+
+					secondOrder = append(secondOrder, combinationList...)
+					if filePath, err := DictOutput(secondOrder, file); err != nil {
+						logger.Errorf("medium generate fail: %s", err)
+					} else {
+						logger.Infof("medium dict filename: %s", filePath)
+					}
+					wg.Done()
+				}()
+
+				// 三阶
+				go func() {
+					file := fmt.Sprintf("%s_%s", fileName, "large")
+
+					threeOrder := make([]string, 0, len(mixPassList)*2)
+					for v := range itertools.CombinationsStr(mixPassList, 3) {
+						threeOrder = append(threeOrder, strings.Join(v, ""))
+					}
+
+					threeOrder = append(threeOrder, combinationList...)
+					if filePath, err := DictOutput(threeOrder, file); err != nil {
+						logger.Errorf("large generate fail: %s", err)
+					} else {
+						logger.Infof("large dict filename: %s", filePath)
+					}
+					wg.Done()
+				}()
+
+				wg.Wait()
+
+				logger.Infof("OK Generate completed!")
+
 				return nil
 			},
 			Flags: []cli.Flag{
@@ -370,9 +453,9 @@ func main() {
 			},
 		},
 		{
-			Name:        "filter",
-			Usage:       "过滤器",
-			Category:    "生成",
+			Name:     "filter",
+			Usage:    "过滤器",
+			Category: "生成",
 			Before:   reloadFn,
 			After:    saveFunc,
 			Action: func(c *cli.Context) error {
@@ -399,7 +482,7 @@ func main() {
 							config.C.Storage.FilterNumber = false
 						}
 
-						gLogs.Debugf("过滤纯数值: %s", strconv.FormatBool(config.C.Storage.FilterNumber))
+						logger.Infof("过滤纯数值: %s", strconv.FormatBool(config.C.Storage.FilterNumber))
 						return nil
 					},
 					Flags: []cli.Flag{
@@ -432,7 +515,7 @@ func main() {
 							config.C.Storage.FilterLetter = false
 						}
 
-						gLogs.Debugf("过滤纯字母: %s", strconv.FormatBool(config.C.Storage.FilterLetter))
+						logger.Infof("过滤纯字母: %s", strconv.FormatBool(config.C.Storage.FilterLetter))
 						return nil
 					},
 					Flags: []cli.Flag{
@@ -459,13 +542,13 @@ func main() {
 
 						min, err := strconv.Atoi(c.Args().Get(0))
 						if err != nil {
-							gLogs.Warn("数值错误")
+							logger.Warn("数值错误")
 							return nil
 						}
 
 						config.C.Storage.FilterLenMin = min
 
-						gLogs.Debugf("过滤长度最小值: %s", strconv.Itoa(config.C.Storage.FilterLenMin))
+						logger.Infof("过滤长度最小值: %s", strconv.Itoa(config.C.Storage.FilterLenMin))
 						return nil
 					},
 				},
@@ -482,13 +565,13 @@ func main() {
 
 						max, err := strconv.Atoi(c.Args().Get(0))
 						if err != nil {
-							gLogs.Warn("数值错误")
+							logger.Warn("数值错误")
 							return nil
 						}
 
 						config.C.Storage.FilterLenMax = max
 
-						gLogs.Debugf("过滤长度最大值: %s", strconv.Itoa(config.C.Storage.FilterLenMax))
+						logger.Infof("过滤长度最大值: %s", strconv.Itoa(config.C.Storage.FilterLenMax))
 						return nil
 					},
 				},
@@ -517,16 +600,9 @@ func main() {
 						}
 
 						// 纯中文正则
-						reg, err := regexp.Compile("^[\u4e00-\u9fa5]+$")
-						if err != nil {
-							panic(err)
-						}
-
+						reg := regexp.MustCompile("^[\u4e00-\u9fa5]+$")
 						// 纯拼音正则
-						enReg, err := regexp.Compile("^[a-zA-Z]+$")
-						if err != nil {
-							panic(err)
-						}
+						enReg := regexp.MustCompile("^[a-zA-Z]+$")
 
 						params := c.Args()
 
@@ -538,7 +614,7 @@ func main() {
 							// 全拼音
 							config.C.Storage.Name = pinyin.FormatSliceToLower(params)
 						} else {
-							gLogs.Warn("姓名格式错误，请输入纯中文或拼音")
+							logger.Warn("姓名格式错误，请输入纯中文或拼音")
 							return nil
 						}
 
@@ -547,31 +623,29 @@ func main() {
 							config.C.Storage.FirstLetter = pinyin.FormatSliceFirstLetter(config.C.Storage.Name)
 						}
 
-						gLogs.Debugf("姓名: %s", strings.Join(config.C.Storage.Name, " "))
-						gLogs.Debugf("首字母: %s", config.C.Storage.FirstLetter)
+						logger.Infof("姓名: %s", strings.Join(config.C.Storage.Name, " "))
+						logger.Infof("首字母: %s", config.C.Storage.FirstLetter)
 						return nil
 					},
 				},
 				{
 					Name:        "short",
 					Usage:       "短名称(英文)",
-					UsageText:   app.Name + " set short <短名称(zhoujl)>",
-					Description: `短名称(英文)`,
+					UsageText:   app.Name + " set short <短名称(zhoujl zhoujl)> ",
+					Description: `短名称(英文) 支持添加多个，空格区分`,
 					Action: func(c *cli.Context) error {
 						if c.NArg() < 1 {
 							cli.ShowCommandHelp(c, c.Command.Name)
 							return nil
 						}
-
-						config.C.Storage.Short = []string(c.Args())
-
-						gLogs.Debugf("短名称: %s", strings.Join(config.C.Storage.Short, " "))
+						config.C.Storage.Short = c.Args()
+						logger.Infof("短名称: %s", strings.Join(config.C.Storage.Short, " "))
 						return nil
 					},
 				},
 				{
 					Name:        "first",
-					Usage:       "姓名首字母(英文)",
+					Usage:       "姓名首字母(英文: zjl)",
 					UsageText:   app.Name + " set first <姓名首字母(zjl)>",
 					Description: `姓名首字母(英文),默认自动获取姓名首字母`,
 					Action: func(c *cli.Context) error {
@@ -583,7 +657,7 @@ func main() {
 						params := c.Args()
 						config.C.Storage.FirstLetter = strings.ToLower(params[0])
 
-						gLogs.Debugf("首字母: %s", config.C.Storage.FirstLetter)
+						logger.Infof("姓名首字母: %s", config.C.Storage.FirstLetter)
 						return nil
 					},
 				},
@@ -602,7 +676,7 @@ func main() {
 
 						t, err := time.Parse("20060504", ymd)
 						if err != nil {
-							gLogs.Error("公历生日转换失败")
+							logger.Errorf("公历生日格式错误: %s", err)
 							return nil
 						}
 
@@ -616,8 +690,8 @@ func main() {
 							config.C.Storage.Lunar = t.Format("20060504")
 						}
 
-						gLogs.Debugf("公历生日: %s", config.C.Storage.Birthday)
-						gLogs.Debugf("农历生日: %s", config.C.Storage.Lunar)
+						logger.Infof("公历生日: %s", config.C.Storage.Birthday)
+						logger.Infof("农历生日: %s", config.C.Storage.Lunar)
 						return nil
 					},
 				},
@@ -636,7 +710,7 @@ func main() {
 
 						t, err := time.Parse("20060504", ymd)
 						if err != nil {
-							gLogs.Error("农历生日转换失败")
+							logger.Errorf("农历生日格式错误: %s", err)
 							return nil
 						}
 
@@ -650,60 +724,62 @@ func main() {
 							config.C.Storage.Birthday = t.Format("20060504")
 						}
 
-						gLogs.Debugf("农历生日: %s", config.C.Storage.Lunar)
-						gLogs.Debugf("公历生日: %s", config.C.Storage.Birthday)
+						logger.Infof("农历生日: %s", config.C.Storage.Lunar)
+						logger.Infof("公历生日: %s", config.C.Storage.Birthday)
 						return nil
 					},
 				},
 				{
 					Name:        "email",
 					Usage:       "邮箱地址",
-					UsageText:   app.Name + " set email <邮箱地址>",
-					Description: `邮箱地址`,
+					UsageText:   app.Name + " set email <邮箱地址(xxx@gmail.com xxx@qq.com)>",
+					Description: `邮箱地址 支持多个，空格区分`,
 					Action: func(c *cli.Context) error {
 						if c.NArg() < 1 {
 							cli.ShowCommandHelp(c, c.Command.Name)
 							return nil
 						}
 
-						reg, err := regexp.Compile(`^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$`);
-						if err != nil {
-							panic(err)
-						}
+						reg := regexp.MustCompile(`^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$`)
 
-						email := c.Args().Get(0)
-						if !reg.MatchString(email) {
-							gLogs.Error("您输入的邮箱格式不正确")
-							return nil
+						emailList := make([]string, 0)
+						for _, email := range c.Args() {
+							if email == "" {
+								continue
+							}
+
+							if !reg.MatchString(email) {
+								logger.Errorf("您输入的邮箱格式不正确: %s", email)
+								continue
+							}
+
+							emailList = append(emailList, email)
 						}
 
 						// 设置邮箱地址
-						config.C.Storage.Email = email
+						config.C.Storage.Email = emailList
 
-						gLogs.Debugf("邮箱: %s", config.C.Storage.Email)
+						logger.Infof("邮箱: %s", strings.Join(config.C.Storage.Email, " "))
 						return nil
 					},
 				},
 				{
 					Name:        "mobile",
 					Usage:       "手机号码",
-					UsageText:   app.Name + " set mobile <手机号码>",
-					Description: `手机号码`,
+					UsageText:   app.Name + " set mobile <手机号码(13011111111 15622222222)>",
+					Description: `手机号码 支持多个 空格区分`,
 					Action: func(c *cli.Context) error {
 						if c.NArg() < 1 {
 							cli.ShowCommandHelp(c, c.Command.Name)
 							return nil
 						}
 
-						reg, err := regexp.Compile(`^1[0-9]{10}$`);
-						if err != nil {
-							panic(err)
-						}
+						reg := regexp.MustCompile(`^1[0-9]{10}$`)
 
 						mobileList := make([]string, 0)
 						for _, mobile := range c.Args() {
 							if !reg.MatchString(mobile) {
-								gLogs.Warnf("您输入的手机号码格式不正确: %s", mobile)
+								logger.Errorf("您输入的手机号码格式不正确: %s", mobile)
 								continue
 							}
 
@@ -713,7 +789,7 @@ func main() {
 						// 设置手机号码
 						config.C.Storage.Mobile = mobileList
 
-						gLogs.Debugf("手机号码: %s", strings.Join(config.C.Storage.Mobile, " "))
+						logger.Infof("手机号码: %s", strings.Join(config.C.Storage.Mobile, " "))
 						return nil
 					},
 				},
@@ -729,9 +805,9 @@ func main() {
 						}
 
 						// 设置用户名
-						config.C.Storage.Username = []string(c.Args())
+						config.C.Storage.Username = c.Args()
 
-						gLogs.Debugf("用户名: %s", strings.Join(config.C.Storage.Username, " "))
+						logger.Infof("用户名: %s", strings.Join(config.C.Storage.Username, " "))
 						return nil
 					},
 				},
@@ -747,16 +823,16 @@ func main() {
 						}
 
 						// 设置QQ
-						config.C.Storage.QQ = []string(c.Args())
+						config.C.Storage.QQ = c.Args()
 
-						gLogs.Debugf("QQ: %s", strings.Join(config.C.Storage.QQ, " "))
+						logger.Infof("QQ: %s", strings.Join(config.C.Storage.QQ, " "))
 						return nil
 					},
 				},
 				{
 					Name:        "company",
 					Usage:       "企业/组织",
-					UsageText:   app.Name + " set company <企业/组织>",
+					UsageText:   app.Name + " set company <企业/组织> 中文自动转拼音",
 					Description: `企业/组织`,
 					Action: func(c *cli.Context) error {
 						if c.NArg() < 1 {
@@ -765,10 +841,7 @@ func main() {
 						}
 
 						// 纯中文正则
-						reg, err := regexp.Compile("^[\u4e00-\u9fa5]+$")
-						if err != nil {
-							panic(err)
-						}
+						reg := regexp.MustCompile("^[\u4e00-\u9fa5]+$")
 
 						// 是否中文
 						if c.NArg() == 1 && reg.MatchString(c.Args().Get(0)) {
@@ -781,8 +854,8 @@ func main() {
 						// 首字母
 						companyFirstLetter := pinyin.FormatSliceFirstLetter(config.C.Storage.Company)
 
-						gLogs.Debugf("企业/组织: %s", strings.Join(config.C.Storage.Company, " "))
-						gLogs.Debugf("首字母: %s", companyFirstLetter)
+						logger.Infof("企业/组织: %s", strings.Join(config.C.Storage.Company, " "))
+						logger.Infof("首字母: %s", companyFirstLetter)
 						return nil
 					},
 				},
@@ -801,7 +874,7 @@ func main() {
 						phrase := c.Args().Get(0)
 						config.C.Storage.Phrase = phrase
 
-						gLogs.Debugf("英文短语: %s", config.C.Storage.Phrase)
+						logger.Infof("英文短语: %s", config.C.Storage.Phrase)
 						return nil
 					},
 				},
@@ -816,21 +889,18 @@ func main() {
 							return nil
 						}
 
-						reg, err := regexp.Compile(`^[1-9]\d{7}((0\d)|(1[0-2]))(([0|1|2]\d)|3[0-1])\d{3}$|^[1-9]\d{5}[1-9]\d{3}((0\d)|(1[0-2]))(([0|1|2]\d)|3[0-1])\d{3}([0-9]|[xX])$`);
-						if err != nil {
-							panic(err)
-						}
+						reg := regexp.MustCompile(`^[1-9]\d{7}((0\d)|(1[0-2]))(([0|1|2]\d)|3[0-1])\d{3}$|^[1-9]\d{5}[1-9]\d{3}((0\d)|(1[0-2]))(([0|1|2]\d)|3[0-1])\d{3}([0-9]|[xX])$`)
 
 						card := c.Args().Get(0)
 						if !reg.MatchString(card) {
-							gLogs.Error("您输入的身份证号码格式不正确")
+							logger.Error("您输入的身份证号码格式不正确")
 							return nil
 						}
 
 						// 设置身份证
 						config.C.Storage.IdentityCard = card
 
-						gLogs.Debugf("身份证: %s", config.C.Storage.IdentityCard)
+						logger.Infof("身份证: %s", config.C.Storage.IdentityCard)
 						return nil
 					},
 				},
@@ -848,7 +918,7 @@ func main() {
 						job := c.Args().Get(0)
 						config.C.Storage.JobNumber = job
 
-						gLogs.Debugf("工号: %s", config.C.Storage.JobNumber)
+						logger.Infof("工号: %s", config.C.Storage.JobNumber)
 						return nil
 					},
 				},
@@ -866,7 +936,7 @@ func main() {
 						wordGroup := c.Args().Get(0)
 						config.C.Storage.WordGroup = wordGroup
 
-						gLogs.Debugf("常用词组: %s", config.C.Storage.WordGroup)
+						logger.Infof("常用词组: %s", config.C.Storage.WordGroup)
 						return nil
 					},
 				},
@@ -884,7 +954,7 @@ func main() {
 						connector := c.Args().Get(0)
 						config.C.Storage.Connector = connector
 
-						gLogs.Debugf("连接符: %s", config.C.Storage.Connector)
+						logger.Infof("连接符: %s", config.C.Storage.Connector)
 						return nil
 					},
 				},
@@ -900,25 +970,25 @@ func main() {
 			Action: func(c *cli.Context) error {
 
 				data := [][]string{
-					[]string{"姓名", "name", strings.Join(config.C.Storage.Name, " ")},
-					[]string{"首字母", "first", config.C.Storage.FirstLetter},
-					[]string{"短名称", "short", strings.Join(config.C.Storage.Short, " ")},
-					[]string{"用户名", "username", strings.Join(config.C.Storage.Username, " ")},
-					[]string{"手机号", "mobile", strings.Join(config.C.Storage.Mobile, " ")},
-					[]string{"QQ", "qq", strings.Join(config.C.Storage.QQ, " ")},
-					[]string{"邮箱", "email", config.C.Storage.Email},
-					[]string{"工号", "no", config.C.Storage.JobNumber},
-					[]string{"公历生日", "birthday", config.C.Storage.Birthday},
-					[]string{"农历生日", "lunar", config.C.Storage.Lunar},
-					[]string{"身份证", "card", config.C.Storage.IdentityCard},
-					[]string{"公司/组织", "company", strings.Join(config.C.Storage.Company, " ")},
-					[]string{"短语", "phrase", config.C.Storage.Phrase},
-					[]string{"常用词组", "word", config.C.Storage.WordGroup},
-					[]string{"连接符", "connector", config.C.Storage.Connector},
-					[]string{"是否过滤纯数字", "filter number", strconv.FormatBool(config.C.Storage.FilterNumber)},
-					[]string{"是否过滤纯字母", "filter letter", strconv.FormatBool(config.C.Storage.FilterLetter)},
-					[]string{"过滤长度 - min", "filter min", strconv.Itoa(config.C.Storage.FilterLenMin)},
-					[]string{"过滤长度 - max", "filter max", strconv.Itoa(config.C.Storage.FilterLenMax)},
+					{"姓名", "name", strings.Join(config.C.Storage.Name, " ")},
+					{"首字母", "first", config.C.Storage.FirstLetter},
+					{"短名称", "short", strings.Join(config.C.Storage.Short, " ")},
+					{"用户名", "username", strings.Join(config.C.Storage.Username, " ")},
+					{"手机号", "mobile", strings.Join(config.C.Storage.Mobile, " ")},
+					{"QQ", "qq", strings.Join(config.C.Storage.QQ, " ")},
+					{"邮箱", "email", strings.Join(config.C.Storage.Email, " ")},
+					{"工号", "no", config.C.Storage.JobNumber},
+					{"公历生日", "birthday", config.C.Storage.Birthday},
+					{"农历生日", "lunar", config.C.Storage.Lunar},
+					{"身份证", "card", config.C.Storage.IdentityCard},
+					{"公司/组织", "company", strings.Join(config.C.Storage.Company, " ")},
+					{"短语", "phrase", config.C.Storage.Phrase},
+					{"常用词组", "word", config.C.Storage.WordGroup},
+					{"连接符", "connector", config.C.Storage.Connector},
+					{"是否过滤纯数字", "filter number", strconv.FormatBool(config.C.Storage.FilterNumber)},
+					{"是否过滤纯字母", "filter letter", strconv.FormatBool(config.C.Storage.FilterLetter)},
+					{"过滤长度 - min", "filter min", strconv.Itoa(config.C.Storage.FilterLenMin)},
+					{"过滤长度 - max", "filter max", strconv.Itoa(config.C.Storage.FilterLenMax)},
 				}
 
 				t := table.NewTable(os.Stdout)
@@ -937,7 +1007,7 @@ func main() {
 				if c.NArg() < 1 {
 					// 重置所有属性的默认设置
 					if err := config.C.Reset(); err != nil {
-						gLogs.Warnf("重置失败: %s", err)
+						logger.Warnf("重置失败: %s", err)
 					}
 					return nil
 				}
@@ -957,7 +1027,7 @@ func main() {
 				case "lunar":
 					config.C.Storage.Lunar = ""
 				case "email":
-					config.C.Storage.Email = ""
+					config.C.Storage.Email = make([]string, 0)
 				case "mobile":
 					config.C.Storage.Mobile = make([]string, 0)
 				case "qq":
@@ -975,7 +1045,7 @@ func main() {
 				case "connector":
 					config.C.Storage.Connector = config.Connector
 				default:
-					gLogs.Warn("未找到该属性")
+					logger.Warn("未找到该属性")
 				}
 				return nil
 			},
@@ -1005,6 +1075,53 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		gLogs.Panic(err.Error())
+		logger.Fatal(err.Error())
 	}
+}
+
+// DictOutput 输出字典列表到文件
+func DictOutput(list []string, fileName string) (filePath string, err error) {
+	var (
+		regFilterLetter *regexp.Regexp
+		regFilterNumber *regexp.Regexp
+		total           = len(list)
+	)
+
+	// 过滤纯字符
+	if config.C.Storage.FilterLetter {
+		regFilterLetter = regexp.MustCompile("^[a-zA-Z]+$")
+	}
+	// 过滤纯数字
+	if config.C.Storage.FilterNumber {
+		regFilterNumber = regexp.MustCompile("^[0-9]+$")
+	}
+
+	dictList := make([]string, 0, total)
+	for i := 0; i < total; i++ {
+		// 过滤长度
+		length := len([]rune(list[i]))
+		if length < config.C.Storage.FilterLenMin {
+			continue
+		}
+		if length > config.C.Storage.FilterLenMax {
+			continue
+		}
+
+		// 过滤纯字符
+		if regFilterLetter != nil && regFilterLetter.MatchString(list[i]) {
+			continue
+		}
+
+		// 过滤纯数字
+		if regFilterNumber != nil && regFilterNumber.MatchString(list[i]) {
+			continue
+		}
+
+		dictList = append(dictList, list[i])
+	}
+
+	// 生成文件
+	filePath = fmt.Sprintf("%s.txt", fileName)
+	err = util.OutputFile(filePath, dictList)
+	return
 }

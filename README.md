@@ -1,32 +1,34 @@
-# DictGenerate 1.0.1 
+<h1 align="center">
+  <br>DictGenerate<br>
+</h1>
+
+# 📖 Introduction
 
 使用Go语言编写的社工字典生成器
 
 The social engineering dictionary generator written by Go
 
 [![Build Status](https://travis-ci.org/telanflow/DictGenerate.svg?branch=master)](https://travis-ci.org/telanflow/DictGenerate)
-[![Go version](https://img.shields.io/badge/Go-1.11-brightgreen.svg)](https://github.com/telanflow/DictGenerate)
+[![Go version](https://img.shields.io/badge/Go-1.13-brightgreen.svg)](https://github.com/telanflow/DictGenerate)
 [![996.icu](https://img.shields.io/badge/link-996.icu-red.svg)](https://996.icu)
 [![LICENSE](https://img.shields.io/badge/license-NPL%20(The%20996%20Prohibited%20License)-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
 
-## Build
-```
-git clone git@github.com:telanflow/DictGenerate.git
-cd DictGenerate
-go mod tidy
-go build
-```
-Or
+## 🚀 Feature
+- 支持 姓名/用户名/首字母/公司(组织)/邮箱/QQ/手机号/身份证/生日(公历农历)/工号/常用词/连接符/短语/弱口令 等
+- 支持多种密码组合混淆方式
+- 支持`中文自动转拼音` / `姓名自动提取首字母` / `生日自动转换`（公历/农历）/ `身份证自动转换`
+- 配置信息留存 / 历史命令 / tab智能提示
+- 多阶段密码字典生成 简易(easy) / 中等(medium) / 复杂(large)
+
+## 🧰 Install
 ```
 git clone git@github.com:telanflow/DictGenerate.git
 cd DictGenerate
 sh ./build.sh
 ```
-
-## Download
 [Download](https://github.com/telanflow/DictGenerate/releases)
 
-## Usage
+## 🛠 Usage
     USAGE:
        DictGenerate [global options] command [command options] [arguments...]
     
@@ -61,14 +63,11 @@ sh ./build.sh
        --version, -v  print the version
     
     COPYRIGHT:
-       (c) 2019 telan.
+       (c) 2019 telanflow.
 
 ## Screenshot
 
 ![screenshot](screenshot.png)
 
-## Author
-    Telan <ziiber@foxmail.com>
-
-## License
-DictGenerate is licensed under the 3-Clause BSD License. DictGenerate is 100% free and open-source software.
+## 📄 License
+Source code in `DictGenerate` is available under the [BSD 3 License](/LICENSE).

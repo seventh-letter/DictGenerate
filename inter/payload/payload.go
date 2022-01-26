@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-// 转换大小写
+// ToUpperLower 转换大小写
 func ToUpperLower(s string) (low, up string) {
 	return strings.ToLower(s), strings.ToUpper(s)
 }
 
-// 转换大小写 - 切片
+// ToUpperLowerSlice 转换大小写 - 切片
 func ToUpperLowerSlice(s []string) (low, up []string) {
 	total := len(s)
 	low = make([]string, total)
@@ -22,10 +22,10 @@ func ToUpperLowerSlice(s []string) (low, up []string) {
 	return
 }
 
-// 字符串首字母大写
+// UcWords 字符串首字母大写
 func UcWords(s string) string {
 	var upperStr string
-	vv := []rune(s)   // 后文有介绍
+	vv := []rune(s) // 后文有介绍
 	for i := 0; i < len(vv); i++ {
 		if i == 0 {
 			if vv[i] >= 97 && vv[i] <= 122 {
@@ -41,7 +41,7 @@ func UcWords(s string) string {
 	return upperStr
 }
 
-// 字符串首字母大写 - 切片
+// UcWordsSlice 字符串首字母大写 - 切片
 func UcWordsSlice(s []string) []string {
 	total := len(s)
 	list := make([]string, len(s))
@@ -51,7 +51,7 @@ func UcWordsSlice(s []string) []string {
 	return list
 }
 
-// 切片去重 - map
+// SliceUnique 切片去重 - map
 func SliceUnique(s []string) []string {
 	total := len(s)
 	result := make([]string, 0, total)
@@ -65,7 +65,7 @@ func SliceUnique(s []string) []string {
 	return result
 }
 
-// 反转字符串
+// ReverseString 反转字符串
 func ReverseString(s string) string {
 	runes := []rune(s)
 	for from, to := 0, len(runes)-1; from < to; from, to = from+1, to-1 {
@@ -74,12 +74,12 @@ func ReverseString(s string) string {
 	return string(runes)
 }
 
-// 获取字符串首字母
+// FirstString 获取字符串首字母
 func FirstString(s string) string {
 	return string([]rune(s)[0])
 }
 
-// 获取字符串首字母
+// FirstSlice 获取字符串首字母
 func FirstSlice(s []string) []string {
 	total := len(s)
 	mix := make([]string, 0, total)
@@ -90,7 +90,7 @@ func FirstSlice(s []string) []string {
 	return mix
 }
 
-// 混淆姓名
+// MixName 混淆姓名
 func MixName(s []string) []string {
 	total := len(s)
 	mixList := make([]string, 0, total*2+8)
@@ -113,11 +113,11 @@ func MixName(s []string) []string {
 	// 组合后两个
 	if total >= 2 {
 		// 正序组合 例：zhou jie lun 组合 jielun
-		givenNameLower := lower[total-2]+lower[total-1]
-		givenNameUpper := upper[total-2]+upper[total-1]
+		givenNameLower := lower[total-2] + lower[total-1]
+		givenNameUpper := upper[total-2] + upper[total-1]
 		// 倒序组合 例：zhou jie lun 组合 lunjie
-		givenNameLowerInverted := lower[total-1]+lower[total-2]
-		givenNameUpperInverted := upper[total-1]+upper[total-2]
+		givenNameLowerInverted := lower[total-1] + lower[total-2]
+		givenNameUpperInverted := upper[total-1] + upper[total-2]
 
 		mixList = append(mixList, givenNameLower, givenNameUpper, givenNameLowerInverted, givenNameUpperInverted)
 	}
@@ -151,7 +151,7 @@ func MixName(s []string) []string {
 	return mixList
 }
 
-// 混淆姓名首字母
+// MixFirstLetter 混淆姓名首字母
 func MixFirstLetter(s string) []string {
 	mixList := make([]string, 0, 4)
 
@@ -174,7 +174,7 @@ func MixFirstLetter(s string) []string {
 	return mixList
 }
 
-// 混淆用户名
+// MixUsername 混淆用户名
 func MixUsername(s string) []string {
 	mixList := make([]string, 0)
 	lower, upper := ToUpperLowerSlice(strings.Split(s, ","))
@@ -190,7 +190,7 @@ func MixUsername(s string) []string {
 	return mixList
 }
 
-// 混淆生日
+// MixBirthday 混淆生日
 func MixBirthday(birthday, lunar string) []string {
 	mixList := make([]string, 16)
 
@@ -222,7 +222,7 @@ func MixBirthday(birthday, lunar string) []string {
 	return mixList
 }
 
-// 混淆邮箱地址
+// MixEmail 混淆邮箱地址
 func MixEmail(s string) []string {
 	mixList := make([]string, 5)
 
@@ -238,7 +238,7 @@ func MixEmail(s string) []string {
 	return mixList
 }
 
-// 混淆手机号
+// MixMobile 混淆手机号
 func MixMobile(s string) []string {
 	mixList := make([]string, 6)
 
@@ -255,7 +255,7 @@ func MixMobile(s string) []string {
 	return mixList
 }
 
-// 混淆身份证
+// MixIdentityCard 混淆身份证
 func MixIdentityCard(s string) []string {
 	mixList := make([]string, 19)
 
@@ -285,7 +285,7 @@ func MixIdentityCard(s string) []string {
 	return mixList
 }
 
-// 混淆短语
+// MixPhrase 混淆短语
 func MixPhrase(s string) []string {
 	mixList := make([]string, 0)
 
@@ -303,7 +303,7 @@ func MixPhrase(s string) []string {
 	return mixList
 }
 
-// 混淆词组
+// MixWordGroup 混淆词组
 func MixWordGroup(s string) []string {
 	mixList := make([]string, 0)
 	list := strings.Split(s, ",")
@@ -319,7 +319,7 @@ func MixWordGroup(s string) []string {
 	return mixList
 }
 
-// 连接符
+// MixConnector 连接符
 func MixConnector(s string) []string {
 	mixList := strings.Split(s, "")
 
@@ -328,7 +328,7 @@ func MixConnector(s string) []string {
 	return mixList
 }
 
-// 混淆公司/组织名称
+// MixCompany 混淆公司/组织名称
 func MixCompany(s []string) []string {
 	mixList := make([]string, 0)
 

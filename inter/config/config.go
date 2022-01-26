@@ -1,9 +1,9 @@
 package config
 
 import (
+	"DictGenerate/inter/logger"
 	"DictGenerate/util"
 	"github.com/json-iterator/go"
-	"github.com/telanflow/go-logging"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,8 +12,7 @@ import (
 )
 
 var (
-	gLog		   = logging.NewLogger("config")
-	ConfigFilePath = filepath.Join(GetConfigDir(), ConfigName)
+	ConfigFilePath  = filepath.Join(GetConfigDir(), ConfigName)
 	HistoryFilePath = filepath.Join(os.TempDir(), HistoryFileName)
 
 	// Config 配置信息, 由外部调用
@@ -21,11 +20,11 @@ var (
 )
 
 type Config struct {
-	Storage			*configJSONExport
+	Storage *configJSONExport
 
-	configFilePath 	string
-	configFile    	*os.File
-	fileMu 			sync.Mutex
+	configFilePath string
+	configFile     *os.File
+	fileMu         sync.Mutex
 }
 
 func NewConfig(configFilePath string) *Config {
@@ -39,12 +38,12 @@ func (c *Config) Init() error {
 	return c.init()
 }
 
-// 从文件重载配置
+// Reload 从文件重载配置
 func (c *Config) Reload() error {
 	return c.init()
 }
 
-// 重置默认配置
+// Reset 重置默认配置
 func (c *Config) Reset() error {
 	c.Storage = nil
 	c.initDefaultConfig()
@@ -200,7 +199,7 @@ func GetConfigDir() string {
 	default:
 		dataPath, ok := os.LookupEnv("HOME")
 		if !ok {
-			gLog.Warn("Environment HOME not set")
+			logger.Warn("Environment HOME not set")
 			return oldConfigDir
 		}
 		configDir := filepath.Join(dataPath, ".config", AppName)
@@ -208,7 +207,7 @@ func GetConfigDir() string {
 		// 检测是否可写
 		err = os.MkdirAll(configDir, 0700)
 		if err != nil {
-			gLog.Warnf("check config dir error: %s\n", err)
+			logger.Warnf("check config dir error: %s", err)
 			return oldConfigDir
 		}
 		return configDir

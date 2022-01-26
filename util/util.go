@@ -62,13 +62,13 @@ func ChWorkDir() {
 func OutputFile(name string, list []string) error {
 
 	var (
-		fp *os.File
+		fp  *os.File
 		err error
 	)
 	if FileExists(name) {
-		fp, err = os.OpenFile(name, os.O_WRONLY | os.O_TRUNC, 0644)
+		fp, err = os.OpenFile(name, os.O_WRONLY|os.O_TRUNC, 0644)
 	} else {
-		fp, err = os.OpenFile(name, os.O_CREATE | os.O_WRONLY | os.O_TRUNC, 0644)
+		fp, err = os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	}
 
 	if err != nil {

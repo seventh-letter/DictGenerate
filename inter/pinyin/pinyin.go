@@ -8,7 +8,6 @@ import (
 
 var dict = pinyin.NewDict()
 
-
 // 转换拼音字符串
 func Convert(s string) string {
 	return dict.Convert(s, " ").None()
@@ -46,7 +45,7 @@ func ConvertNameSlice(s string) []string {
 func FormatSliceFirstLetter(s []string) string {
 	total := len(s)
 	buf := new(bytes.Buffer)
-	for i:=0; i<total; i++ {
+	for i := 0; i < total; i++ {
 		buf.WriteString(s[i][:1])
 	}
 	return buf.String()
@@ -55,7 +54,7 @@ func FormatSliceFirstLetter(s []string) string {
 // 字符串切片转小写
 func FormatSliceToLower(s []string) []string {
 	total := len(s)
-	for i:=0; i<total; i++ {
+	for i := 0; i < total; i++ {
 		s[i] = strings.ToLower(s[i])
 	}
 	return s
