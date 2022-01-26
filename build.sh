@@ -9,4 +9,3 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./DictGenerate_linux_amd64 ./D
 CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 go build -o ./DictGenerate_linux_armv5 ./DictGenerate.go
 CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o ./DictGenerate_linux_armv6 ./DictGenerate.go
 CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o ./DictGenerate_linux_armv7 ./DictGenerate.go
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=8 go build -o ./DictGenerate_linux_armv8 ./DictGenerate.go
