@@ -11,9 +11,7 @@ jobs:
   release:
     name: Release on GitHub
     runs-on: ubuntu-latest
-    signs:
-      - artifacts: checksum
-        args: [ "--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}" ]
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v2
